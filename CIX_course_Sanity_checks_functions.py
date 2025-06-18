@@ -141,8 +141,8 @@ def plot_recovery(df, true_col, rec_col, title):
 
         # Scatter plot
         sns.scatterplot(x='true_param', y='fitted_param', data=df_temp)
-        plt.plot([df_temp['true_param'].min(), df_temp['true_param'].max()],
-                [df_temp['fitted_param'].min(), df_temp['fitted_param'].max()], 'r--')
+        # plt.plot([df_temp['true_param'].min(), df_temp['true_param'].max()],
+                # [df_temp['fitted_param'].min(), df_temp['fitted_param'].max()], 'r--')
         plt.xlabel("Simulated")
         plt.ylabel("Recovered")
         plt.title(title+f" parameter {i+1}")

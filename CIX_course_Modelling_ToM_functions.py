@@ -53,7 +53,7 @@ def fplayer(P, beta, player, game):
     else:
         raise ValueError("player must be 1 or 2")
 
-    return - DV / beta
+    return DV / beta
 
 # ----------------------------------------------------------
 # Definition of Evolution and Decision functions
@@ -108,7 +108,7 @@ def g_Qlearning(x, P, u=None, in_dict=None):
     else:
         z = beta * dQ
 
-    gx = sigmoid(z)
+    gx = sigmoid(-z)
 
     return gx
 
@@ -168,7 +168,7 @@ def g_fictitious_learner(x, P, u, in_):
     else:
         z = beta * dQ
 
-    gx = sigmoid(z)
+    gx = sigmoid(-z)
 
     return gx
 
@@ -483,7 +483,7 @@ class Agent:
         #     gx = result
         gx = result
 
-        return int(np.random.rand() > gx)
+        return int(np.random.rand() < gx)
 
     def update(self, other_action, own_action,t):
         if self.player == 1:
@@ -554,7 +554,7 @@ class MixedAgent:
             #     gx = result
             gx = result
 
-        return int(np.random.rand() > gx)
+        return int(np.random.rand() < gx)
 
     def update(self, other_action, own_action,t):
         # Determine which game to use based on the current trial

@@ -112,7 +112,7 @@ def MIIL_pyro_model(actions, opponent_actions, rewards, in_dict):
     rewards: Tensor of rewards received by the agent (not used in this model).
     in_dict: Additional information for the model (e.g., game, player).
     """
-    
+
     nb_trials = len(actions)
     def model():
         eta = pyro.sample("eta", dist.Normal(0.0, 3.0))       # agent's prediction error weight
@@ -356,7 +356,7 @@ def predict_model_probs(data, f, g, params, in_dict):
     for t in range(data[0].shape[0]):
         probs_t = g(x.detach().numpy(), phi.detach().numpy(), None, in_dict) #probability of action 0
         # print("Probs_t: ", probs_t)
-        probs.append(1-probs_t)        
+        probs.append(probs_t)        
         u = [data[0][t].numpy(), data[1][t].numpy()] 
         xnp = f(x.detach().numpy(), theta.detach().numpy(), u, in_dict)
         x = torch.tensor(xnp, dtype=torch.float)
@@ -388,10 +388,11 @@ def compute_goodness_of_fit(res, data):
     # r_squared = 1 - np.sum((actions - action_probs) ** 2) / np.sum((actions - np.mean(actions)) ** 2)
 
     # Model log likelihood
+    action_probs = np.clip(action_probs, 1e-8, 1 - 1e-8) # Avoid log(0) issues
     log_likelihood = np.sum(np.log(action_probs) * actions + np.log(1 - action_probs) * (1 - actions))
 
     # Model AIC
-    n_params = len(res['params'])
+    n_params = len(res['params']['phi']) + len(res['params']['theta'])
     aic = 2 * n_params - 2 * log_likelihood
 
     # Model BIC
