@@ -10,7 +10,15 @@ from CIX_course_Fitting_ToM_functions import estimate_dirichlet_rfx
 
 def organize_elbos_by_simmodel(fit_result):
     """
-    Returns:
+    Organizes fit results into a nested structure for model recovery analysis.
+    fit_result: list of dicts with keys: 
+        - simulated_model: name of the simulated model
+        - fitted_model: name of the fitted model
+        - participant_nb: participant number
+        - model_fit_result: dict with keys:
+            - elbo: evidence lower bound for the model fit
+
+    This function returns:    
         sim_model_names: sorted list of simulated models
         fit_model_names: sorted list of fitted models
         sim_to_elbo: dict of simulated_model -> matrix [N x K] of ELBOs
@@ -47,6 +55,13 @@ def organize_elbos_by_simmodel(fit_result):
 def model_recovery_confusion(sim_model_names, fit_model_names, sim_to_elbo):
     """
     Computes confusion matrix: rows=simulated, cols=fitted, values=exceedance probs
+    sim_model_names: list of simulated model names
+    fit_model_names: list of fitted model names
+    sim_to_elbo: dict of simulated_model -> matrix [N x K] of ELBOs
+
+    returns:
+        conf_matrix: confusion matrix of shape [len(sim_model_names), len(fit_model_names)]
+        where each entry represents the model frequency or exceedance probability    
     """
     conf_matrix = np.zeros((len(sim_model_names), len(fit_model_names)))
 
@@ -62,6 +77,13 @@ def model_recovery_confusion(sim_model_names, fit_model_names, sim_to_elbo):
     return conf_matrix
 
 def plot_confusion_matrix(conf_matrix, sim_model_names, fit_model_names):
+    """
+    Plots the confusion matrix as a heatmap.
+    conf_matrix: confusion matrix of shape [len(sim_model_names), len(fit_model_names)]
+    sim_model_names: list of simulated model names
+    fit_model_names: list of fitted model names
+    """
+
     plt.figure(figsize=(8, 6))
     sns.heatmap(conf_matrix, annot=True, fmt=".2f", cmap="Blues",
                 xticklabels=fit_model_names, yticklabels=sim_model_names)
@@ -75,6 +97,28 @@ def plot_confusion_matrix(conf_matrix, sim_model_names, fit_model_names):
 # Parameter recovery 
 
 def organize_recovery_data(results, full_sims_hist):
+    """
+    Organizes parameter recovery data from simulation results and full simulation history.
+    results: list of dicts with keys:
+        - participant_nb: participant number
+        - simulated_model: name of the simulated model
+        - fitted_model: name of the fitted model
+        - model_fit_result: dict with keys:
+            - params: dict with recovered parameters (e.g., phi, theta)
+    full_sims_hist: list of dicts with keys:
+        - sim_id: simulation ID
+        - model: name of the simulated model
+        - agent1: dict with true parameters (e.g., phi, theta)
+    Returns a DataFrame with columns:
+        - sim_id: simulation ID
+        - true_phi: true parameter phi
+        - true_theta: true parameter theta
+        - rec_phi: recovered parameter phi
+        - rec_theta: recovered parameter theta
+        - sim_model: simulated model name
+        - fitted_model: fitted model name
+    """
+
     # 1. Create a list of recovered data
     recovery_data = []
 
@@ -114,6 +158,13 @@ def organize_recovery_data(results, full_sims_hist):
     return df
 
 def plot_recovery(df, true_col, rec_col, title):
+    """
+    Plots parameter recovery scatter plots.
+    df: DataFrame with columns for true and recovered parameters
+    true_col: column name for true parameters (e.g., 'true_phi', 'true_theta')
+    rec_col: column name for recovered parameters (e.g., 'rec_phi', 'rec_theta')
+    title: title for the plot
+    """
 
     nb_params = df[true_col].iloc[0].size  # Number of parameters to plot
     print(f"Number of parameters to plot: {nb_params}")

@@ -2,10 +2,22 @@ import numpy as np
 
 # Utility functions
 def sigmoid(x, inverse=False, slope=1, center=0):
+    """Applies the sigmoid function or its inverse.
+    Parameters:
+    - x: numeric, list/tuple of numerics, or dict of numerics
+    - inverse: if True, applies the inverse sigmoid function
+    - slope: slope of the sigmoid function
+    - center: center of the sigmoid function
+    Returns:
+    - numeric, list/tuple of numerics, or dict of numerics
+    """
+
     if inverse:
         x = np.clip(x, 1e-8, 1 - 1e-8)  # avoid log(0)
         return np.log(x / (1 - x))
-    return 1 / (1 + np.exp(-slope * (x - center)))
+
+    z = np.clip(-slope * (x - center))
+    return 1 / (1 + np.exp(z))
 
 def is_weird(X):
     """
@@ -405,6 +417,23 @@ def g_MIIL(x, P, u, in_dict):
 def f_Mixed_AA(x, P, u, in_dict):
     """
     Mixed AA model: evolution function
+    Parameters:
+    - x: dict with keys ('occ', hist_key) and ('chose_0', hist_key)
+    - P: unused (included for compatibility)
+    - u: list or array-like [own_action_n_2, other_action_n_2, own_action_n_1, other_action_n_1, other_action_n]
+    - in_dict: dictionary with keys ['game', 'player']
+    Returns:
+    - x: updated dict with keys ('occ', hist_key) and ('chose_0', hist_key)
+    1. Updates the occurrence count of a specific history.
+    2. Updates the count of times the agent chose action 0 in that history.
+    3. Returns the updated dict.
+    4. If the input u is "weird" (contains NaNs, Infs, or complex numbers), returns the input x unchanged.
+    5. The history key is constructed from the last two actions and rewards.
+    6. The function assumes x is a dict with keys ('occ', hist_key) and ('chose_0', hist_key).
+    7. The history key is a string formed by concatenating the last two actions and rewards.
+    8. If the history key does not exist in x, it initializes it with a count of 0.
+    9. If the last action of the opponent is 0, it increments the count of 'chose_0' for that history.
+    10. Returns the updated x.
     """
     if is_weird(u):
         return x
@@ -427,6 +456,22 @@ def f_Mixed_AA(x, P, u, in_dict):
 def g_Mixed_AA(x, P, u, in_dict):
     """
     Mixed AA model: observation function
+    Parameters:
+    - x: dict with keys ('occ', hist_key) and ('chose_0', hist_key)
+    - P: unused (included for compatibility)
+    - u: list or array-like [own_action_n_2, other_action_n_2, own_action_n_1, other_action_n_1, other_action_n]
+    - in_dict: dictionary with keys ['game', 'player']
+    Returns:
+    - gx: float, P(a=1|x)
+    1. Computes the probability of choosing action 1 based on the history of actions and rewards.
+    2. If the input u is "weird" (contains NaNs, Infs, or complex numbers), returns the input x unchanged.
+    3. The history key is constructed from the last two actions and rewards.
+    4. The function assumes x is a dict with keys ('occ', hist_key) and ('chose_0', hist_key).
+    5. The history key is a string formed by concatenating the last two actions and rewards.
+    6. If the history key does not exist in x, it returns 0.
+    7. If the game is a Coordination Game (CG), it computes the probability of choosing the same action.
+    8. If the game is a Hide and Seek (HaS), it computes the probability of choosing the opposite action.
+    9. Returns the computed probability gx.    
     """
     if is_weird(u):
         return x
@@ -450,6 +495,20 @@ def g_Mixed_AA(x, P, u, in_dict):
 # ----------------------------------------------------------
 # Definition of Agents classes
 class Agent:
+    '''Base class for agents in the game.
+    This class defines the basic structure and methods for agents, including action selection and state updates.
+    Attributes:
+    - f_func: function for state evolution
+    - g_func: function for decision making
+    - x_init: initial hidden states
+    - phi: parameters for the decision function
+    - theta: parameters for the evolution function
+    - game: payoff matrix for the game
+    - player_id: identifier for the player (1 or 2)
+    - name: name of the agent
+    - x: current hidden states
+    - history: list to store the history of actions and rewards
+    '''
     def __init__(self, f_func, g_func, x_init, phi, theta, game, player_id, name="Agent"):
         # Evolution function
         self.f_func = f_func
@@ -473,6 +532,13 @@ class Agent:
         self.history = []
 
     def choose_action(self,t):
+        '''Selects an action based on the current hidden states and the decision function.
+        Parameters:
+        - t: current time step (not used in this base class, but can be used in subclasses)
+        Returns:
+        - int: chosen action (0 or 1)
+        '''
+        # Prepare the input for the decision function
         in_struct = {'game': self.game, 'player': self.player}
         result = self.g_func(self.x, self.phi, None, in_struct)
 
@@ -486,6 +552,14 @@ class Agent:
         return int(np.random.rand() < gx)
 
     def update(self, other_action, own_action,t):
+        '''Updates the agent's hidden states and history based on the actions taken and the reward received.
+        Parameters:
+        - other_action: action taken by the other player
+        - own_action: action taken by this agent
+        - t: current time step (not used in this base class, but can be used in subclasses)
+        Returns:
+        - None
+        '''
         if self.player == 1:
             reward = self.game[own_action, other_action, self.player - 1]
         else:
@@ -496,6 +570,24 @@ class Agent:
         self.history.append((own_action, other_action, reward))
 
 class MixedAgent:
+    '''Base class for agents in the game with two different games. 
+    This class defines the basic structure and methods for agents, including action selection and state updates.
+    Attributes:
+    - f_func: function for state evolution
+    - g_func: function for decision making
+    - x_init: initial hidden states
+    - phi: parameters for the decision function
+    - theta: parameters for the evolution function
+    - game1: payoff matrix for the first game
+    - game2: payoff matrix for the second game
+    - game1_trials: list indicating trials for the first game
+    - game2_trials: list indicating trials for the second game
+    - player_id: identifier for the player (1 or 2)
+    - name: name of the agent
+    - x: current hidden states
+    - history: list to store the history of actions and rewards
+    '''
+
     def __init__(self, f_func, g_func, x_init, phi, theta, game1, game2, game1_trials, game2_trials, player_id, name="Agent"):
         # Evolution function
         self.f_func = f_func
@@ -523,6 +615,12 @@ class MixedAgent:
         self.history = []
 
     def choose_action(self,t):
+        '''Selects an action based on the current hidden states and the decision function.
+        Parameters:
+        - t: current time step
+        Returns:
+        - int: chosen action (0 or 1)
+        '''
         # Determine which game to use based on the current trial
         if self.game1_trials[t]:
             game = self.game1
@@ -557,6 +655,15 @@ class MixedAgent:
         return int(np.random.rand() < gx)
 
     def update(self, other_action, own_action,t):
+        '''Updates the agent's hidden states and history based on the actions taken and the reward received.
+        Parameters:
+        - other_action: action taken by the other player
+        - own_action: action taken by this agent
+        - t: current time step
+        Returns:
+        - None
+        '''
+        
         # Determine which game to use based on the current trial
         if self.game1_trials[t]:
             game = self.game1
