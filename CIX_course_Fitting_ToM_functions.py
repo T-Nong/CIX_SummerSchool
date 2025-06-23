@@ -23,6 +23,8 @@ def q_learning_pyro_model(actions, opponent_actions, rewards, in_dict = None):
     opponent_actions: Tensor of actions taken by the opponent (not used in this model).
     rewards: Tensor of rewards received by the agent.
     in_dict: Additional information for the model (e.g., game, player).
+
+    Returns: A Pyro model function that can be used with SVI for fitting.
     """
     nb_trials = len(actions)
     def model():
@@ -50,6 +52,8 @@ def fictitious_learner_pyro_model(actions, opponent_actions, rewards, in_dict = 
     opponent_actions: Tensor of actions taken by the opponent (not used in this model).
     rewards: Tensor of rewards received by the agent.
     in_dict: Additional information for the model (e.g., game, player).
+
+    Returns: A Pyro model function that can be used with SVI for fitting.
     """
     nb_trials = len(actions)
     def model():
@@ -77,6 +81,8 @@ def influence_learning_pyro_model(actions, opponent_actions, rewards, in_dict):
     opponent_actions: Tensor of actions taken by the opponent.
     rewards: Tensor of rewards received by the agent (not used in this model).
     in_dict: Additional information for the model (e.g., game, player).
+
+    Returns: A Pyro model function that can be used with SVI for fitting.
     """
 
     nb_trials = len(actions)
@@ -111,6 +117,8 @@ def MIIL_pyro_model(actions, opponent_actions, rewards, in_dict):
     opponent_actions: Tensor of actions taken by the opponent.
     rewards: Tensor of rewards received by the agent (not used in this model).
     in_dict: Additional information for the model (e.g., game, player).
+
+    Returns: A Pyro model function that can be used with SVI for fitting.
     """
 
     nb_trials = len(actions)
@@ -151,6 +159,7 @@ def MIIL_pyro_model(actions, opponent_actions, rewards, in_dict):
 # Definition of Pyro guides for each agent
 
 def guide_Qlearn():
+    ''' Guide for Q-learning agent.'''
     alpha_loc = pyro.param("alpha_loc", torch.tensor(0.0))
     beta_loc = pyro.param("beta_loc", torch.tensor(0.0))
     bias_loc = pyro.param("bias_loc", torch.tensor(0.0))
@@ -160,6 +169,7 @@ def guide_Qlearn():
 
 
 def guide_FPlayer():
+    ''' Guide for Fictitious Learner agent.'''
     alpha_loc = pyro.param("alpha_loc", torch.tensor(0.0))
     beta_loc = pyro.param("beta_loc", torch.tensor(0.0))
     bias_loc = pyro.param("bias_loc", torch.tensor(0.0))
@@ -169,6 +179,7 @@ def guide_FPlayer():
 
 
 def guide_influence_learning():
+    ''' Guide for Influence Learning agent.'''
     eta_loc = pyro.param("eta_loc", torch.tensor(0.0))
     pyro.sample("eta", dist.Normal(eta_loc,2.0))
     lambd_loc = pyro.param("lambd_loc", torch.tensor(0.0))
@@ -182,6 +193,7 @@ def guide_influence_learning():
 
 
 def guide_MIIL():
+    ''' Guide for Mixed-Intentions Influence Learner (MIIL) agent.'''
     eta_loc = pyro.param("eta_loc", torch.tensor(0.0))
     pyro.sample("eta", dist.Normal(eta_loc,2.0))
     lambd_loc = pyro.param("lambd_loc", torch.tensor(0.0))
@@ -211,6 +223,7 @@ def fit_model(data, model_fn, in_dict, guide_fn = None, n_steps=1000, tolerance=
     tolerance: Tolerance for early stopping based on loss improvement.
     verbose: Whether to print progress information.
     patience: Number of steps without improvement before stopping.
+    Returns: Dictionary with fitted model parameters, ELBO, and action probabilities.
     """
 
     a = torch.tensor(data['agent1_action'].values, dtype=torch.long)
@@ -344,6 +357,7 @@ def predict_model_probs(data, f, g, params, in_dict):
     model_fn: Function to create the model.
     params: Dictionary with 'phi' and 'theta' parameters.
     in_dict: Additional information for the model (e.g., game, player).
+    Returns: Numpy array of predicted action probabilities.
     """
     # Extract parameters
     phi = torch.tensor(params["phi"], dtype=torch.float)
@@ -408,6 +422,8 @@ def compute_goodness_of_fit(res, data):
             }
 
 def plot_fit_results(res, sim_hist, fitted_model_name, n_trials):
+    '''Plots the fit results of the model against the simulated history.'''
+
     plt.figure(figsize=(12, 6))
     plt.plot(res['action_probs'], label='Model action predictions', color='blue')
     plt.scatter(sim_hist['trial_nb'], sim_hist['agent1_action'], label='Agent 1 actions', color='orange', alpha=0.5)
@@ -428,6 +444,8 @@ def plot_fit_results(res, sim_hist, fitted_model_name, n_trials):
 def build_elbo_matrix(fit_result):
     """
     Builds ELBO matrix: participants × fitted models
+    fit_result: List of dictionaries with keys 'fitted_model', 'participant_nb', and 'model_fit_result'.
+    Returns: ELBO matrix (numpy array) and model names (list).
     """
     elbos_by_model = defaultdict(dict)  # model → {participant_nb: elbo}
 
@@ -506,6 +524,9 @@ def estimate_dirichlet_rfx(probs, max_iter=100, tol=1e-4):
 def compute_exceedance_prob(alpha, n_samples=1_000_000):
     """
     Exceedance probability: P(model_k > all others)
+    alpha: Dirichlet parameters (K-dimensional array).
+    n_samples: Number of samples to draw from the Dirichlet distribution.
+    Returns: Exceedance probabilities for each model (K-dimensional array).
     """
     # Sample from Dirichlet distribution
     # This gives us a large number of samples from the Dirichlet distribution
@@ -546,6 +567,11 @@ def bootstrap_alphas(probs, n_boot=100):
 def plot_rfx_model_comparison_with_ci(model_names, alphas, exceedance_probs, ci_lower, ci_upper):
     """
     Plot RFX model comparison with confidence intervals on alphas.
+    model_names: List of model names.
+    alphas: Estimated model frequencies (K-dimensional array).
+    exceedance_probs: Exceedance probabilities (K-dimensional array).
+    ci_lower, ci_upper: 95% confidence intervals for alphas (K-dimensional arrays).
+    returns: None
     """
     K = len(model_names)
     colors = sns.color_palette("Set2", K)
